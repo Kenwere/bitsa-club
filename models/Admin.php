@@ -33,9 +33,28 @@ class Admin {
     }
 
     public function update($id, $data) {
-        $query = "UPDATE {$this->table} SET name = ?, username = ? WHERE id = ?";
+        $set = ["name = ?", "username = ?"];
+        $types = "ss";
+        $params = [$data['name'], $data['username']];
+
+        if (array_key_exists('contact', $data)) {
+            $set[] = "contact = ?";
+            $types .= "s";
+            $params[] = $data['contact'];
+        }
+
+        if (!empty($data['password'])) {
+            $set[] = "password = ?";
+            $types .= "s";
+            $params[] = $data['password'];
+        }
+
+        $types .= "i";
+        $params[] = $id;
+
+        $query = "UPDATE {$this->table} SET " . implode(', ', $set) . " WHERE id = ?";
         $stmt = $this->db->prepare($query);
-        $stmt->bind_param('ssi', $data['name'], $data['username'], $id);
+        $stmt->bind_param($types, ...$params);
         return $stmt->execute();
     }
 }

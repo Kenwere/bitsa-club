@@ -10,7 +10,6 @@ class AuthController {
     
     public function registerUser() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Verify CSRF token
             if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
                 $_SESSION['error'] = 'Invalid CSRF token';
                 header('Location: user-register.php');
@@ -35,7 +34,6 @@ class AuthController {
     
     public function loginUser() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Verify CSRF token
             if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
                 $_SESSION['error'] = 'Invalid CSRF token';
                 header('Location: user-login.php');
@@ -62,7 +60,6 @@ class AuthController {
     
     public function registerAdmin() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Verify CSRF token
             if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
                 $_SESSION['error'] = 'Invalid CSRF token';
                 header('Location: admin-register.php');
@@ -87,7 +84,6 @@ class AuthController {
     
     public function loginAdmin() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Verify CSRF token
             if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
                 $_SESSION['error'] = 'Invalid CSRF token';
                 header('Location: admin-login.php');
@@ -113,20 +109,18 @@ class AuthController {
     }
     
     public function logout() {
-        // Verify this is a POST request for security
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->auth->logout();
             $_SESSION['success'] = 'Logged out successfully!';
-            header('Location: index.php');
+            header('Location: ../index.php');
             exit;
         } else {
-            header('Location: index.php');
+            header('Location: ../index.php');
             exit;
         }
     }
     
     public function logoutAdmin() {
-        // Verify this is a POST request for security
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->auth->logout();
             $_SESSION['success'] = 'Admin logged out successfully!';

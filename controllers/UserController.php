@@ -19,7 +19,8 @@ class UserController {
     
     public function dashboard() {
         if (!isset($_SESSION['user_id'])) {
-            redirect('auth/user-login.php');
+            header('Location: ../auth/user-login.php');
+            exit;
         }
         
         $current_user = $this->user->find($_SESSION['user_id']);
@@ -37,19 +38,36 @@ class UserController {
     
     public function updateProfile() {
         if (!isset($_SESSION['user_id'])) {
-            jsonResponse(['success' => false, 'message' => 'Unauthorized'], 401);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $data = escape($_POST);
+            $data = [
+                'name' => escape($_POST['name'] ?? ''),
+                'username' => escape($_POST['username'] ?? ''),
+                'bio' => escape($_POST['bio'] ?? ''),
+                'skills' => escape($_POST['skills'] ?? '')
+            ];
+            
             $result = $this->user->updateProfile($_SESSION['user_id'], $data);
             
             if ($result) {
-                jsonResponse(['success' => true, 'message' => 'Profile updated successfully']);
+                echo json_encode(['success' => true, 'message' => 'Profile updated successfully']);
             } else {
-                jsonResponse(['success' => false, 'message' => 'Failed to update profile'], 500);
+                echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
             }
         }
+    }
+}
+
+// Handle direct requests
+if (isset($_POST['action']) && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
+    $controller = new UserController();
+    $action = $_POST['action'];
+    
+    if ($action === 'update_profile') {
+        $controller->updateProfile();
     }
 }
 ?>

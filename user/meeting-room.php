@@ -24,6 +24,7 @@ $meetingModel = new Meeting();
 $meeting = $meetingModel->findById($meeting_id);
 
 if (!$meeting) {
+    $_SESSION['error'] = 'Meeting not found';
     header('Location: dashboard.php');
     exit;
 }
@@ -38,6 +39,7 @@ if (!$meetingModel->isMeetingJoinable($meeting_id)) {
 // Join meeting
 $meetingModel->join($meeting_id, $_SESSION['user_id']);
 ?>
+
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>

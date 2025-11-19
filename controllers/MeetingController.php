@@ -3,73 +3,75 @@ require_once '../models/Meeting.php';
 require_once '../includes/auth.php';
 
 class MeetingController {
-    private $auth;
+    private $meetingModel;
 
     public function __construct() {
-        $this->auth = new Auth();
+        $this->meetingModel = new Meeting();
     }
 
-    public function getAllMeetings() {
-        $meetingModel = new Meeting();
-        
-        $activeMeetings = $meetingModel->getActiveMeetings();
-        $scheduledMeetings = $meetingModel->getScheduledMeetings();
+    public function createMeeting($data) {
+        try {
+            // Validate required fields
+            if (empty($data['title']) || empty($data['date']) || empty($data['time'])) {
+                return [
+                    'success' => false,
+                    'message' => 'All required fields must be filled'
+                ];
+            }
 
-        return [
-            'active_meetings' => $this->formatMeetings($activeMeetings),
-            'scheduled_meetings' => $this->formatMeetings($scheduledMeetings)
-        ];
-    }
+            // Validate date and time
+            $scheduled_time = $data['date'] . ' ' . $data['time'];
+            if (strtotime($scheduled_time) <= time()) {
+                return [
+                    'success' => false,
+                    'message' => 'Meeting time must be in the future'
+                ];
+            }
 
-    public function getUserMeetings($user_id) {
-        $meetingModel = new Meeting();
-        // You'll need to implement methods to get user-specific meetings
-        $meetings = []; // Placeholder
-        
-        return $this->formatMeetings($meetings);
-    }
+            // Use create method for both users and admins (since we removed admin_id)
+            $success = $this->meetingModel->create($data);
 
-    private function formatMeetings($meetings) {
-        $formattedMeetings = [];
-        
-        foreach ($meetings as $meeting) {
-            $formattedMeetings[] = [
-                'id' => $meeting['id'],
-                'title' => $meeting['title'],
-                'description' => $meeting['description'],
-                'scheduled_time' => $meeting['scheduled_time'],
-                'type' => $meeting['type'],
-                'meeting_id' => $meeting['meeting_id'],
-                'is_active' => (bool)$meeting['is_active'],
-                'participants_count' => $meeting['participants_count'],
-                'user' => [
-                    'name' => $meeting['user_name'] ?? 'Host',
-                    'id' => $meeting['user_id']
-                ],
-                'active_participants' => $this->getMeetingParticipants($meeting['id'])
+            return [
+                'success' => $success,
+                'message' => $success ? 'Meeting created successfully' : 'Failed to create meeting'
+            ];
+
+        } catch (Exception $e) {
+            error_log("MeetingController Error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Failed to create meeting'
             ];
         }
-
-        return $formattedMeetings;
     }
+}
 
-    private function getMeetingParticipants($meeting_id) {
-        $meetingModel = new Meeting();
-        $participants = $meetingModel->getParticipants($meeting_id);
+// Handle direct API calls
+if (isset($_POST['action']) && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
+    // Verify CSRF token
+    if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
+        exit;
+    }
+    
+    $controller = new MeetingController();
+    $action = $_POST['action'];
+    
+    if ($action === 'create') {
+        $data = $_POST;
         
-        $formattedParticipants = [];
-        foreach ($participants as $participant) {
-            $formattedParticipants[] = [
-                'user' => [
-                    'name' => $participant['user_name'],
-                    'id' => $participant['user_id']
-                ],
-                'is_host' => (bool)$participant['is_host'],
-                'joined_at' => $participant['joined_at']
-            ];
+        // Set user_id based on session
+        if (isset($_SESSION['admin_id'])) {
+            $data['user_id'] = $_SESSION['admin_id']; // Use admin_id as user_id
+        } else if (isset($_SESSION['user_id'])) {
+            $data['user_id'] = $_SESSION['user_id'];
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
         }
-
-        return $formattedParticipants;
+        
+        $result = $controller->createMeeting($data);
+        echo json_encode($result);
     }
 }
 ?>

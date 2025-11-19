@@ -1,7 +1,7 @@
 <?php
 // Site Configuration
 define('SITE_NAME', 'Bitsa Club');
-define('SITE_URL', 'http://localhost/bitsa-club');
+define('SITE_URL', 'http://bitsaclub.xo.je');
 
 // File Upload Paths
 define('UPLOAD_PATH', __DIR__ . '/../assets/uploads/');
@@ -16,4 +16,7 @@ define('EMAIL_FROM_NAME', 'Bitsa Club');
 
 // Other Constants
 define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
+
+// Include database configuration
+require_once 'database.php';
 ?>

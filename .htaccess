@@ -1,5 +1,10 @@
 RewriteEngine On
 
+# Security headers first
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+
 # Redirect to HTTPS if not localhost
 # RewriteCond %{HTTPS} off
 # RewriteCond %{HTTP_HOST} !localhost
@@ -9,12 +14,7 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)/$ /$1 [L,R=301]
 
-# Front controller pattern - redirect all requests to index.php
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
-
-# API routes
+# API routes - these should come BEFORE the front controller
 RewriteRule ^api/posts$ api/posts.php [L]
 RewriteRule ^api/meetings$ api/meetings.php [L]
 RewriteRule ^api/events$ api/events.php [L]
@@ -33,7 +33,9 @@ RewriteRule ^profile$ user/profile.php [L]
 # Admin routes
 RewriteRule ^admin/dashboard$ admin/dashboard.php [L]
 
-# Security headers
-Header always set X-Content-Type-Options nosniff
-Header always set X-Frame-Options DENY
-Header always set X-XSS-Protection "1; mode=block"
+# Front controller pattern - redirect all other requests to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+
+

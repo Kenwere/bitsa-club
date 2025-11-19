@@ -589,7 +589,7 @@ require_once 'includes/functions.php';
                 padding: 1.5rem;
             }
 
-            /* Mobile spacing fixes */
+           
             .floating-nav {
                 top: 1rem;
                 padding: 0.5rem 1rem;
@@ -597,7 +597,7 @@ require_once 'includes/functions.php';
             }
 
             .theme-toggle {
-                top: 4.5rem; /* Adjusted for mobile */
+                top: 4.5rem;
                 right: 1rem;
                 width: 50px;
                 height: 50px;
@@ -609,7 +609,7 @@ require_once 'includes/functions.php';
             }
         }
 
-        /* Extra small devices */
+       
         @media (max-width: 480px) {
             .floating-nav {
                 top: 0.8rem;
@@ -627,23 +627,23 @@ require_once 'includes/functions.php';
     </style>
 </head>
 <body>
-    <!-- Floating Navigation Bar -->
+    
     <nav class="floating-nav">
         <a href="auth/user-login.php" class="nav-btn">User Login</a>
         <a href="auth/admin-login.php" class="nav-btn">Admin Login</a>
     </nav>
 
-    <!-- Theme Toggle -->
+    
     <button class="theme-toggle" id="themeToggle">
         <i class="bi bi-moon-fill" id="themeIcon"></i>
     </button>
 
-    <!-- Welcome Section -->
+ 
     <section class="section welcome-section">
-        <!-- Matrix Rain -->
+        
         <div class="matrix-rain" id="matrixRain"></div>
 
-        <!-- Content -->
+       
         <div class="welcome-content">
             <h1 class="welcome-title">BITSA CLUB</h1>
             
@@ -656,7 +656,7 @@ require_once 'includes/functions.php';
                 and professional growth through cutting-edge projects and knowledge sharing.
             </p>
 
-            <!-- Rotating Text -->
+           
             <div class="rotating-text-container">
                 <div class="rotating-text">Software Engineering</div>
                 <div class="rotating-text">Networking</div>
@@ -669,7 +669,7 @@ require_once 'includes/functions.php';
             </div>
         </div>
 
-        <!-- Scroll Indicator -->
+       
         <div class="scroll-indicator">
             <span class="scroll-text">Explore</span>
             <div class="scroll-mouse">
@@ -680,7 +680,7 @@ require_once 'includes/functions.php';
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Theme Toggle
+      
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const html = document.documentElement;
@@ -702,7 +702,7 @@ require_once 'includes/functions.php';
             themeIcon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
         }
 
-        // Matrix Rain Effect with English characters
+        
         function createMatrixRain(containerId) {
             const matrixRain = document.getElementById(containerId);
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$#@%&*';
@@ -723,10 +723,10 @@ require_once 'includes/functions.php';
             }
         }
 
-        // Create matrix rain
+        
         createMatrixRain('matrixRain');
 
-        // Auto-hide alerts after 5 seconds
+       
         document.addEventListener('DOMContentLoaded', function() {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(alert => {

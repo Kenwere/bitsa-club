@@ -10,43 +10,44 @@ class Auth {
     }
     
     public function registerUser($data) {
-        // Validate data
-        $errors = $this->validateUserRegistration($data);
-        if (!empty($errors)) {
-            return ['success' => false, 'errors' => $errors];
-        }
-        
-        // Check if user already exists
-        if ($this->userExists($data['email'], $data['username'])) {
-            return ['success' => false, 'errors' => ['email' => 'User with this email or username already exists']];
-        }
-        
-        // Hash password
-        $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
-        
-        try {
-            $stmt = $this->db->prepare("
-                INSERT INTO users (name, email, username, password, role, is_active, created_at) 
-                VALUES (?, ?, ?, ?, 'user', 1, NOW())
-            ");
-            
-            $stmt->execute([
-                $data['name'],
-                $data['email'],
-                $data['username'],
-                $hashed_password
-            ]);
-            
-            $user_id = $this->db->lastInsertId();
-            
-            // Log the user in
-            return $this->loginUser($data['email'], $data['password']);
-            
-        } catch (PDOException $e) {
-            error_log("User registration error: " . $e->getMessage());
-            return ['success' => false, 'errors' => ['database' => 'Registration failed. Please try again.']];
-        }
+    // Validate data
+    $errors = $this->validateUserRegistration($data);
+    if (!empty($errors)) {
+        return ['success' => false, 'errors' => $errors];
     }
+    
+    // Check if user already exists
+    if ($this->userExists($data['email'], $data['username'])) {
+        return ['success' => false, 'errors' => ['email' => 'User with this email or username already exists']];
+    }
+    
+    // Hash password
+    $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+    
+    try {
+        // Updated query to match your actual database columns
+        $stmt = $this->db->prepare("
+            INSERT INTO users (name, email, username, password_hash, role, is_active, is_verified, created_at) 
+            VALUES (?, ?, ?, ?, 'user', 1, 0, NOW())
+        ");
+        
+        $stmt->execute([
+            $data['name'],
+            $data['email'],
+            $data['username'],
+            $hashed_password
+        ]);
+        
+        $user_id = $this->db->lastInsertId();
+        
+        // Log the user in
+        return $this->loginUser($data['email'], $data['password']);
+        
+    } catch (PDOException $e) {
+        error_log("User registration error: " . $e->getMessage());
+        return ['success' => false, 'errors' => ['database' => 'Registration failed. Please try again.']];
+    }
+}
     
     public function loginUser($email, $password) {
         try {
@@ -58,7 +59,11 @@ class Auth {
             $stmt->execute([$email]);
             $user = $stmt->fetch();
             
-            if ($user && password_verify($password, $user['password'])) {
+            if ($user) {
+                $passwordColumn = !empty($user['password_hash']) ? 'password_hash' : 'password';
+                if (!isset($user[$passwordColumn]) || !password_verify($password, $user[$passwordColumn])) {
+                    return ['success' => false, 'message' => 'Invalid email or password'];
+                }
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_email'] = $user['email'];
@@ -128,7 +133,11 @@ class Auth {
             $stmt->execute([$email]);
             $admin = $stmt->fetch();
             
-            if ($admin && password_verify($password, $admin['password'])) {
+            if ($admin) {
+                $adminPasswordColumn = !empty($admin['password_hash']) ? 'password_hash' : 'password';
+                if (!isset($admin[$adminPasswordColumn]) || !password_verify($password, $admin[$adminPasswordColumn])) {
+                    return ['success' => false, 'message' => 'Invalid email or password'];
+                }
                 $_SESSION['admin_id'] = $admin['id'];
                 $_SESSION['admin_name'] = $admin['name'];
                 $_SESSION['admin_email'] = $admin['email'];

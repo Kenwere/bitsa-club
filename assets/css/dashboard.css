@@ -940,3 +940,37 @@ body {
     padding: 1.5rem;
     margin-bottom: 1.5rem;
 }
+
+/* Contact section */
+.contact-item {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    color: var(--text-primary);
+}
+
+.contact-item .text-muted,
+.contact-item .fw-600 {
+    color: var(--text-primary) !important;
+    opacity: 0.9;
+}
+
+.whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--accent-success);
+    border: none;
+    color: #fff !important;
+    font-size: 1.2rem;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.whatsapp-btn:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+}

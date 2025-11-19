@@ -7,7 +7,7 @@ require_once '../models/Meeting.php';
 // Enable CORS and set JSON header
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-TOKEN');
 
 // Handle preflight requests
@@ -16,9 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_id'])) {
     http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
 
@@ -30,14 +30,15 @@ try {
     switch ($_SERVER['REQUEST_METHOD']) {
         case 'GET':
             if ($action === 'user') {
-                $meetings = $meeting->getUserMeetings($_SESSION['user_id']);
-                echo json_encode($meetings);
+                $user_id = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? 0;
+                $meetings = $meeting->getUserMeetings($user_id);
+                echo json_encode(['success' => true, 'meetings' => $meetings]);
             } elseif ($action === 'active') {
                 $meetings = $meeting->getActiveMeetings();
-                echo json_encode($meetings);
+                echo json_encode(['success' => true, 'meetings' => $meetings]);
             } elseif ($action === 'scheduled') {
                 $meetings = $meeting->getScheduledMeetings();
-                echo json_encode($meetings);
+                echo json_encode(['success' => true, 'meetings' => $meetings]);
             } elseif ($action === 'all') {
                 $response = [
                     'success' => true,
@@ -46,13 +47,15 @@ try {
                 ];
                 echo json_encode($response);
             } else {
-                $meetings = $meeting->getAll();
-                echo json_encode($meetings);
+                $meetings = $meeting->getAllMeetings();
+                echo json_encode(['success' => true, 'meetings' => $meetings]);
             }
             break;
             
         case 'POST':
-            if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+            // Get CSRF token from header or POST data
+            $csrf_token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!verify_csrf_token($csrf_token)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']);
                 break;
             }
@@ -60,10 +63,12 @@ try {
             if ($action === 'join') {
                 // Join meeting
                 $meeting_id = $_POST['meeting_id'] ?? $_GET['meeting_id'] ?? 0;
-                if ($meeting_id) {
+                $user_id = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? 0;
+                
+                if ($meeting_id && $user_id) {
                     // Check if meeting is joinable
                     if ($meeting->isMeetingJoinable($meeting_id)) {
-                        $success = $meeting->join($meeting_id, $_SESSION['user_id']);
+                        $success = $meeting->join($meeting_id, $user_id);
                         echo json_encode([
                             'success' => $success, 
                             'message' => $success ? 'Joined meeting successfully' : 'Failed to join meeting'
@@ -75,23 +80,19 @@ try {
                         ]);
                     }
                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Invalid meeting ID']);
+                    echo json_encode(['success' => false, 'message' => 'Invalid meeting ID or user ID']);
                 }
             } elseif ($action === 'leave') {
-                // Leave meeting
-                $meeting_id = $_POST['meeting_id'] ?? $_GET['meeting_id'] ?? 0;
-                if ($meeting_id) {
-                    $success = $meeting->leave($meeting_id, $_SESSION['user_id']);
-                    echo json_encode(['success' => $success]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Invalid meeting ID']);
-                }
+                // Leave meeting (you'll need to implement this method)
+                echo json_encode(['success' => false, 'message' => 'Leave meeting not implemented yet']);
             } elseif ($action === 'delete') {
                 // Delete meeting
                 $meeting_id = $_POST['meeting_id'] ?? $_GET['meeting_id'] ?? 0;
+                $user_id = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? 0;
+                
                 if ($meeting_id) {
                     $meeting_data = $meeting->findById($meeting_id);
-                    if ($meeting_data && $meeting_data['user_id'] == $_SESSION['user_id']) {
+                    if ($meeting_data && ($meeting_data['user_id'] == $user_id || isset($_SESSION['admin_id']))) {
                         $success = $meeting->delete($meeting_id);
                         echo json_encode([
                             'success' => $success, 
@@ -105,8 +106,10 @@ try {
                 }
             } else {
                 // Create new meeting
+                $user_id = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? 0;
+                
                 $data = [
-                    'user_id' => $_SESSION['user_id'],
+                    'user_id' => $user_id,
                     'title' => escape($_POST['title'] ?? ''),
                     'description' => escape($_POST['description'] ?? ''),
                     'date' => escape($_POST['date'] ?? ''),
@@ -137,32 +140,13 @@ try {
             }
             break;
             
-        case 'DELETE':
-            // Delete meeting
-            $meeting_id = $_GET['meeting_id'] ?? 0;
-            if ($meeting_id) {
-                $meeting_data = $meeting->findById($meeting_id);
-                if ($meeting_data && $meeting_data['user_id'] == $_SESSION['user_id']) {
-                    $success = $meeting->delete($meeting_id);
-                    echo json_encode([
-                        'success' => $success, 
-                        'message' => $success ? 'Meeting deleted successfully' : 'Failed to delete meeting'
-                    ]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'You can only delete your own meetings']);
-                }
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid meeting ID']);
-            }
-            break;
-            
         default:
             http_response_code(405);
-            echo json_encode(['error' => 'Method not allowed']);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
     }
 } catch (Exception $e) {
     error_log("Meetings API Error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Internal server error']);
+    echo json_encode(['success' => false, 'message' => 'Internal server error: ' . $e->getMessage()]);
 }
 ?>

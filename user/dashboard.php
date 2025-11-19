@@ -23,25 +23,34 @@ require_once '../models/Post.php';
 require_once '../models/Meeting.php';
 require_once '../models/Event.php';
 require_once '../models/User.php';
+require_once '../models/Gallery.php'; // Add Gallery model
 
 $postModel = new Post();
 $meetingModel = new Meeting();
 $eventModel = new Event();
 $userModel = new User();
+$galleryModel = new Gallery(); // Initialize Gallery model
 
 // IMPORTANT: Update meeting statuses automatically
 $meetingModel->checkAndUpdateMeetingStatus();
 
-// Get data for dashboard
+// Get data for dashboard - FIXED QUERIES
 $posts = $postModel->getAll();
-$meetings = $meetingModel->getUserMeetings($_SESSION['user_id']);
-$events = $eventModel->getAll();
-$userStats = $userModel->getUserStats($_SESSION['user_id']);
 
-// Get properly filtered meetings using model methods
+// Get meetings using the fixed methods
 $activeMeetings = $meetingModel->getActiveMeetings();
 $scheduledMeetings = $meetingModel->getScheduledMeetings();
 $pastMeetings = $meetingModel->getPastMeetings();
+
+// Get user's own meetings
+$userMeetings = $meetingModel->getUserMeetings($_SESSION['user_id']);
+
+// Get events
+$events = $eventModel->getActiveEvents(); // Use getActiveEvents instead of getAll
+$userStats = $userModel->getUserStats($_SESSION['user_id']);
+
+// Get gallery images
+$gallery_images = $galleryModel->getAll();
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -151,52 +160,53 @@ $pastMeetings = $meetingModel->getPastMeetings();
             font-size: 1rem;
             flex-shrink: 0;
         }
+        
         /* Meeting Badges */
-.live-badge {
-    background: var(--accent-danger);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
+        .live-badge {
+            background: var(--accent-danger);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
 
-.scheduled-badge {
-    background: var(--accent-warning);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
+        .scheduled-badge {
+            background: var(--accent-warning);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
 
-.private-badge {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-}
+        .private-badge {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
 
-/* Meeting Cards */
-.meeting-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    transition: all 0.2s ease;
-}
+        /* Meeting Cards */
+        .meeting-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
 
-.meeting-card:hover {
-    border-color: var(--accent-blue);
-    box-shadow: var(--shadow-sm);
-}
+        .meeting-card:hover {
+            border-color: var(--accent-blue);
+            box-shadow: var(--shadow-sm);
+        }
 
-.meeting-live {
-    border-left: 4px solid var(--accent-danger);
-}
+        .meeting-live {
+            border-left: 4px solid var(--accent-danger);
+        }
 
-.meeting-scheduled {
-    border-left: 4px solid var(--accent-warning);
-}
+        .meeting-scheduled {
+            border-left: 4px solid var(--accent-warning);
+        }
         
         .post-user-info {
             flex: 1;
@@ -661,6 +671,47 @@ $pastMeetings = $meetingModel->getPastMeetings();
             font-size: 0.8125rem;
         }
         
+        /* Gallery grid - Same as admin dashboard */
+        #galleryGrid .gallery-item {
+            overflow: hidden;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            cursor: pointer;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+
+        #galleryGrid .gallery-item img {
+            display: block;
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            transition: transform 0.35s ease;
+        }
+
+        #galleryGrid .gallery-item:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-md);
+        }
+
+        #galleryGrid .gallery-item:hover img {
+            transform: scale(1.05);
+        }
+
+        #galleryGrid .gallery-caption {
+            padding: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            background: var(--secondary-bg);
+        }
+
+        #galleryGrid .gallery-actions {
+            padding: 0.5rem 0.75rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--secondary-bg);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .posts-grid {
@@ -676,6 +727,11 @@ $pastMeetings = $meetingModel->getPastMeetings();
                 max-width: calc(100% - 2rem);
                 right: 1rem;
                 left: 1rem;
+            }
+            
+            /* Gallery responsive */
+            #galleryGrid .gallery-item {
+                margin-bottom: 1rem;
             }
         }
     </style>
@@ -696,13 +752,13 @@ $pastMeetings = $meetingModel->getPastMeetings();
         </div>
         <div class="user-actions">
             <span class="text-muted">Welcome, <?php echo htmlspecialchars($current_user['name']); ?></span>
-          <form method="POST" action="../controllers/AuthController.php" class="d-inline">
-    <input type="hidden" name="action" value="logout">
-    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-    <button type="submit" class="btn btn-danger-custom">
-        <i class="bi bi-box-arrow-right"></i> Logout
-    </button>
-</form>
+            <form method="POST" action="../controllers/AuthController.php" class="d-inline">
+                <input type="hidden" name="action" value="logout">
+                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                <button type="submit" class="btn btn-danger-custom">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+            </form>
         </div>
     </header>
 
@@ -736,6 +792,9 @@ $pastMeetings = $meetingModel->getPastMeetings();
                 <a href="#meetings" class="nav-item" data-section="meetings">
                     <i class="bi bi-camera-video"></i> <span>Meetings</span>
                 </a>
+                <a href="#gallery" class="nav-item" data-section="gallery">
+                    <i class="bi bi-images"></i> <span>Gallery</span>
+                </a>
             </div>
 
             <div class="nav-section">
@@ -745,6 +804,13 @@ $pastMeetings = $meetingModel->getPastMeetings();
                 </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <i class="bi bi-gear"></i> <span>Settings</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>More</h3>
+                <a href="#contact" class="nav-item" data-section="contact">
+                    <i class="bi bi-telephone"></i> <span>Contact</span>
                 </a>
             </div>
 
@@ -933,143 +999,240 @@ $pastMeetings = $meetingModel->getPastMeetings();
                 </div>
             </section>
 
-           <!-- Meetings Section -->
-<section id="meetings-section" class="content-section">
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h2 class="card-title mb-0"><i class="bi bi-camera-video"></i> Live Meetings</h2>
-            <button class="btn-primary-custom" data-bs-toggle="modal" data-bs-target="#createMeetingModal">
-                <i class="bi bi-plus-circle"></i> New Meeting
-            </button>
-        </div>
-        
-        <!-- Active Meetings -->
-        <div class="mb-4">
-            <h3 class="mb-3">
-                Active Meetings
-                <small class="text-muted" id="activeMeetingsCount">(<?php echo count($activeMeetings); ?>)</small>
-            </h3>
-            <div id="activeMeetings" class="row">
-                <?php if (empty($activeMeetings)): ?>
-                    <div class="col-12">
-                        <div class="empty-state">
-                            <i class="bi bi-camera-video-off"></i>
-                            <h4>No Active Meetings</h4>
-                            <p>There are no live meetings at the moment</p>
-                        </div>
+            <!-- Meetings Section -->
+            <section id="meetings-section" class="content-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0"><i class="bi bi-camera-video"></i> Live Meetings</h2>
+                        <button class="btn-primary-custom" data-bs-toggle="modal" data-bs-target="#createMeetingModal">
+                            <i class="bi bi-plus-circle"></i> New Meeting
+                        </button>
                     </div>
-                <?php else: ?>
-                    <?php foreach ($activeMeetings as $meeting): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="meeting-card meeting-live">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="mb-1"><?php echo htmlspecialchars($meeting['title']); ?></h5>
-                                <div>
-                                    <span class="live-badge">LIVE</span>
-                                    <?php if ($meeting['type'] === 'private'): ?>
-                                        <span class="private-badge ms-1"><i class="bi bi-lock"></i></span>
-                                    <?php endif; ?>
+                    
+                    <!-- Active Meetings -->
+                    <div class="mb-4">
+                        <h3 class="mb-3">
+                            Active Meetings
+                            <small class="text-muted" id="activeMeetingsCount">(<?php echo count($activeMeetings); ?>)</small>
+                        </h3>
+                        <div id="activeMeetings" class="row">
+                            <?php if (empty($activeMeetings)): ?>
+                                <div class="col-12">
+                                    <div class="empty-state">
+                                        <i class="bi bi-camera-video-off"></i>
+                                        <h4>No Active Meetings</h4>
+                                        <p>There are no live meetings at the moment</p>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <p class="text-muted mb-2">
-                                <i class="bi bi-person"></i> 
-                                <span class="meeting-host"><?php echo htmlspecialchars($meeting['user_name']); ?></span>
-                            </p>
-                            
-                            <?php if (!empty($meeting['description'])): ?>
-                                <p class="mb-3 small"><?php echo htmlspecialchars($meeting['description']); ?></p>
+                            <?php else: ?>
+                                <?php foreach ($activeMeetings as $meeting): ?>
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="meeting-card meeting-live">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h5 class="mb-1"><?php echo htmlspecialchars($meeting['title']); ?></h5>
+                                            <div>
+                                                <span class="live-badge">LIVE</span>
+                                                <?php if ($meeting['type'] === 'private'): ?>
+                                                    <span class="private-badge ms-1"><i class="bi bi-lock"></i></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        
+                                        <p class="text-muted mb-2">
+                                            <i class="bi bi-person"></i> 
+                                            <span class="meeting-host"><?php echo htmlspecialchars($meeting['user_name']); ?></span>
+                                        </p>
+                                        
+                                        <?php if (!empty($meeting['description'])): ?>
+                                            <p class="mb-3 small"><?php echo htmlspecialchars($meeting['description']); ?></p>
+                                        <?php endif; ?>
+                                        
+                                        <div class="text-muted mb-2">
+                                            <i class="bi bi-clock"></i> Started <?php echo formatDate($meeting['scheduled_time']); ?>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="participants">
+                                                <i class="bi bi-people"></i>
+                                                <span><?php echo $meeting['participants_count']; ?> participants</span>
+                                            </div>
+                                            <div class="meeting-actions">
+                                                <?php if ($meeting['user_id'] == $_SESSION['user_id']): ?>
+                                                    <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(<?php echo $meeting['id']; ?>)" title="Delete Meeting">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <button class="btn-primary-custom btn-sm" onclick="joinMeeting(<?php echo $meeting['id']; ?>)">
+                                                    <i class="bi bi-camera-video"></i> Join
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
                             <?php endif; ?>
-                            
-                            <div class="text-muted mb-2">
-                                <i class="bi bi-clock"></i> Started <?php echo formatDate($meeting['scheduled_time']); ?>
-                            </div>
-                            
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="participants">
-                                    <i class="bi bi-people"></i>
-                                    <span><?php echo $meeting['participants_count']; ?> participants</span>
-                                </div>
-                                <div class="meeting-actions">
-                                    <?php if ($meeting['user_id'] == $_SESSION['user_id']): ?>
-                                        <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(<?php echo $meeting['id']; ?>)" title="Delete Meeting">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    <?php endif; ?>
-                                    <button class="btn-primary-custom btn-sm" onclick="joinMeeting(<?php echo $meeting['id']; ?>)">
-                                        <i class="bi bi-camera-video"></i> Join
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
 
-        <!-- Scheduled Meetings -->
-        <div>
-            <h3 class="mb-3">
-                Scheduled Meetings
-                <small class="text-muted" id="scheduledMeetingsCount">(<?php echo count($scheduledMeetings); ?>)</small>
-            </h3>
-            <div id="scheduledMeetings">
-                <?php if (empty($scheduledMeetings)): ?>
-                    <div class="empty-state">
-                        <i class="bi bi-calendar-x"></i>
-                        <h4>No Scheduled Meetings</h4>
-                        <p>No upcoming meetings are scheduled</p>
-                    </div>
-                <?php else: ?>
-                    <?php foreach ($scheduledMeetings as $meeting): ?>
-                    <div class="meeting-card meeting-scheduled">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="mb-1"><?php echo htmlspecialchars($meeting['title']); ?></h5>
-                            <div>
-                                <span class="scheduled-badge">SCHEDULED</span>
-                                <?php if ($meeting['type'] === 'private'): ?>
-                                    <span class="private-badge ms-1"><i class="bi bi-lock"></i></span>
-                                <?php endif; ?>
-                            </div>
+                    <!-- Scheduled Meetings -->
+                    <div>
+                        <h3 class="mb-3">
+                            Scheduled Meetings
+                            <small class="text-muted" id="scheduledMeetingsCount">(<?php echo count($scheduledMeetings); ?>)</small>
+                        </h3>
+                        <div id="scheduledMeetings">
+                            <?php if (empty($scheduledMeetings)): ?>
+                                <div class="empty-state">
+                                    <i class="bi bi-calendar-x"></i>
+                                    <h4>No Scheduled Meetings</h4>
+                                    <p>No upcoming meetings are scheduled</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($scheduledMeetings as $meeting): ?>
+                                <div class="meeting-card meeting-scheduled">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="mb-1"><?php echo htmlspecialchars($meeting['title']); ?></h5>
+                                        <div>
+                                            <span class="scheduled-badge">SCHEDULED</span>
+                                            <?php if ($meeting['type'] === 'private'): ?>
+                                                <span class="private-badge ms-1"><i class="bi bi-lock"></i></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="text-muted mb-2">
+                                        <i class="bi bi-person"></i> 
+                                        <span class="meeting-host"><?php echo htmlspecialchars($meeting['user_name']); ?></span>
+                                    </p>
+                                    
+                                    <?php if (!empty($meeting['description'])): ?>
+                                        <p class="mb-3 small"><?php echo htmlspecialchars($meeting['description']); ?></p>
+                                    <?php endif; ?>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div>
+                                            <span class="text-muted">
+                                                <i class="bi bi-calendar"></i> <?php echo formatDate($meeting['scheduled_time'], 'M j, Y g:i A'); ?>
+                                            </span>
+                                        </div>
+                                        <div class="meeting-actions">
+                                            <?php if ($meeting['user_id'] == $_SESSION['user_id']): ?>
+                                                <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(<?php echo $meeting['id']; ?>)" title="Delete Meeting">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                            <button class="btn-primary-custom btn-sm join-meeting-btn" 
+                                                    data-meeting-id="<?php echo $meeting['id']; ?>"
+                                                    data-scheduled-time="<?php echo $meeting['scheduled_time']; ?>"
+                                                    onclick="checkAndJoinMeeting(<?php echo $meeting['id']; ?>, '<?php echo $meeting['scheduled_time']; ?>')">
+                                                <i class="bi bi-camera-video"></i> <span class="join-text">Join</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
-                        
-                        <p class="text-muted mb-2">
-                            <i class="bi bi-person"></i> 
-                            <span class="meeting-host"><?php echo htmlspecialchars($meeting['user_name']); ?></span>
-                        </p>
-                        
-                        <?php if (!empty($meeting['description'])): ?>
-                            <p class="mb-3 small"><?php echo htmlspecialchars($meeting['description']); ?></p>
-                        <?php endif; ?>
-                        
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <span class="text-muted">
-                                    <i class="bi bi-calendar"></i> <?php echo formatDate($meeting['scheduled_time'], 'M j, Y g:i A'); ?>
-                                </span>
-                            </div>
-                            <div class="meeting-actions">
-                                <?php if ($meeting['user_id'] == $_SESSION['user_id']): ?>
-                                    <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(<?php echo $meeting['id']; ?>)" title="Delete Meeting">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <button class="btn-primary-custom btn-sm join-meeting-btn" 
-                                        data-meeting-id="<?php echo $meeting['id']; ?>"
-                                        data-scheduled-time="<?php echo $meeting['scheduled_time']; ?>"
-                                        onclick="checkAndJoinMeeting(<?php echo $meeting['id']; ?>, '<?php echo $meeting['scheduled_time']; ?>')">
-                                    <i class="bi bi-camera-video"></i> <span class="join-text">Join</span>
-                                </button>
-                            </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Gallery Section -->
+            <section id="gallery-section" class="content-section">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="card-title"><i class="bi bi-images"></i> Gallery</h2>
+                        <div>
+                            <small class="text-muted me-3" id="galleryCount"><?php echo count($gallery_images); ?> image<?php echo count($gallery_images) !== 1 ? 's' : ''; ?></small>
                         </div>
                     </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                    <div class="card-body">
+                        <div id="galleryGrid" class="row g-3">
+                            <?php if (empty($gallery_images)): ?>
+                                <div id="galleryEmpty" class="empty-state">
+                                    <i class="bi bi-images"></i>
+                                    <h4>No Gallery Images</h4>
+                                    <p>There are no images in the gallery yet.</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($gallery_images as $image): ?>
+                                <div class="col-md-4 col-lg-3">
+                                    <div class="gallery-item" onclick="viewImage('<?php echo $image['file_name']; ?>', '<?php echo htmlspecialchars($image['caption'] ?? ''); ?>')">
+                                        <img src="../assets/uploads/gallery/<?php echo $image['file_name']; ?>" 
+                                             alt="<?php echo htmlspecialchars($image['caption'] ?? 'Gallery image'); ?>" 
+                                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                                        <div class="gallery-caption"><?php echo htmlspecialchars($image['caption'] ?? 'No caption'); ?></div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Image View Modal -->
+            <div class="modal fade" id="imageViewModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content" style="background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <div class="modal-header" style="border-bottom: 1px solid var(--border-color);">
+                            <h5 class="modal-title" id="imageViewTitle">Image</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img id="imageViewEl" src="" alt="" style="max-width:100%; max-height:70vh; border-radius:8px; border:1px solid var(--border-color);" />
+                            <p id="imageViewCaption" class="text-muted mt-2"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-</section>
+
+            <!-- Contact Section -->
+            <section id="contact-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><i class="bi bi-telephone"></i> Contact</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h5 class="mb-1">Club Email</h5>
+                            <p class="text-muted">bitsaclub@ueab.ac.ke</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <h5 class="mb-2">Leadership</h5>
+
+                            <div class="d-flex align-items-center justify-content-between mb-3 p-3" style="background:var(--secondary-bg); border:1px solid var(--border-color); border-radius:8px;">
+                                <div>
+                                    <div class="fw-600">Alpha Chamba</div>
+                                    <div class="text-muted small">President</div>
+                                    <div class="text-muted small">0708898899</div>
+                                </div>
+                                <div>
+                                    <a href="https://wa.me/254708898899?text=Hello%20Alpha%20Chamba" target="_blank" class="btn btn-sm" title="Chat on WhatsApp" style="border-radius:999px; padding:10px 12px; border:1px solid var(--border-color); background:var(--card-bg);">
+                                        <i class="bi bi-whatsapp"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="d-flex align-items-center justify-content-between mb-3 p-3" style="background:var(--secondary-bg); border:1px solid var(--border-color); border-radius:8px;">
+                                <div>
+                                    <div class="fw-600">Gloria Jebet</div>
+                                    <div class="text-muted small">Vice President</div>
+                                    <div class="text-muted small">0725486687</div>
+                                </div>
+                                <div>
+                                    <a href="https://wa.me/254725486687?text=Hello%20Gloria%20Jebet" target="_blank" class="btn btn-sm" title="Chat on WhatsApp" style="border-radius:999px; padding:10px 12px; border:1px solid var(--border-color); background:var(--card-bg);">
+                                        <i class="bi bi-whatsapp"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <small class="text-muted">Click the WhatsApp buttons to start a chat with the leader (opens WhatsApp / WhatsApp Web).</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
             <!-- Profile Section -->
             <section id="profile-section" class="content-section">
@@ -1575,7 +1738,7 @@ $pastMeetings = $meetingModel->getPastMeetings();
             commentsList.innerHTML = '<div class="loading"><i class="bi bi-arrow-repeat spinner"></i> Loading comments...</div>';
 
             try {
-                const response = await fetch(`../api/posts.php?post_id=${postId}`);
+                const response = await fetch(`../api/posts.php?action=comments&post_id=${postId}`);
                 if (!response.ok) throw new Error('Failed to load comments');
                 
                 const comments = await response.json();
@@ -1642,8 +1805,6 @@ $pastMeetings = $meetingModel->getPastMeetings();
             }
         }
 
-       
-
         // Profile functionality
         const profileForm = document.getElementById('profileForm');
         if (profileForm) {
@@ -1706,6 +1867,19 @@ $pastMeetings = $meetingModel->getPastMeetings();
                 console.error('Error attending event:', error);
                 showTimedAlert('Network error. Please try again', 'danger');
             }
+        }
+
+        // View image function for gallery
+        function viewImage(fileName, caption) {
+            const imageViewModal = new bootstrap.Modal(document.getElementById('imageViewModal'));
+            const imageViewEl = document.getElementById('imageViewEl');
+            const imageViewCaption = document.getElementById('imageViewCaption');
+            const imageViewTitle = document.getElementById('imageViewTitle');
+            
+            imageViewEl.src = `../assets/uploads/gallery/${fileName}`;
+            imageViewCaption.textContent = caption || 'No caption';
+            imageViewTitle.textContent = caption || 'Image';
+            imageViewModal.show();
         }
 
         // Utility functions
@@ -1801,333 +1975,330 @@ $pastMeetings = $meetingModel->getPastMeetings();
         // Auto-refresh posts every 30 seconds
         setInterval(loadPosts, 30000);
 
-
-
-
         // ==================== MEETING FUNCTIONS ====================
 
-// Create meeting function
-async function createMeeting() {
-    const form = document.getElementById('createMeetingForm');
-    const createBtn = document.getElementById('createMeetingBtn');
-    
-    if (!form || !createBtn) return;
-
-    const formData = new FormData(form);
-
-    // Validate form
-    const title = formData.get('title');
-    const date = formData.get('date');
-    const time = formData.get('time');
-
-    if (!title || !date || !time) {
-        showTimedAlert('Please fill in all required fields', 'warning');
-        return;
-    }
-
-    // Validate date and time
-    const meetingDateTime = new Date(`${date}T${time}`);
-    const now = new Date();
-    
-    if (meetingDateTime <= now) {
-        showTimedAlert('Meeting time must be in the future', 'warning');
-        return;
-    }
-
-    // Disable button and show loading
-    createBtn.disabled = true;
-    createBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i> Creating...';
-
-    try {
-        const response = await fetch('../api/meetings.php', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showTimedAlert('Meeting created successfully!', 'success');
+        // Create meeting function
+        async function createMeeting() {
+            const form = document.getElementById('createMeetingForm');
+            const createBtn = document.getElementById('createMeetingBtn');
             
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('createMeetingModal'));
-            if (modal) {
-                modal.hide();
+            if (!form || !createBtn) return;
+
+            const formData = new FormData(form);
+            
+            // Add user_id to form data
+            formData.append('user_id', <?php echo $_SESSION['user_id']; ?>);
+
+            // Validate form
+            const title = formData.get('title');
+            const date = formData.get('date');
+            const time = formData.get('time');
+
+            if (!title || !date || !time) {
+                showTimedAlert('Please fill in all required fields', 'warning');
+                return;
+            }
+
+            // Validate date and time
+            const meetingDateTime = new Date(`${date}T${time}`);
+            const now = new Date();
+            
+            if (meetingDateTime <= now) {
+                showTimedAlert('Meeting time must be in the future', 'warning');
+                return;
+            }
+
+            // Disable button and show loading
+            createBtn.disabled = true;
+            createBtn.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i> Creating...';
+
+            try {
+                const response = await fetch('../api/meetings.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showTimedAlert('Meeting created successfully!', 'success');
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('createMeetingModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    form.reset();
+                    // Refresh meetings
+                    refreshMeetings();
+                } else {
+                    showTimedAlert(data.message || 'Failed to create meeting', 'danger');
+                }
+            } catch (error) {
+                console.error('Error creating meeting:', error);
+                showTimedAlert('Failed to create meeting. Please try again.', 'danger');
+            } finally {
+                // Re-enable button
+                createBtn.disabled = false;
+                createBtn.innerHTML = '<i class="bi bi-plus-circle"></i> Create Meeting';
+            }
+        }
+
+        async function joinMeeting(meetingId) {
+            try {
+                const formData = new FormData();
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+                formData.append('meeting_id', meetingId);
+
+                const response = await fetch(`../api/meetings.php?action=join`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showTimedAlert('Joining meeting...', 'success');
+                    // Redirect to meeting room
+                    window.location.href = `meeting-room.php?meeting_id=${meetingId}`;
+                } else {
+                    showTimedAlert(data.message || 'Failed to join meeting', 'danger');
+                }
+            } catch (error) {
+                console.error('Error joining meeting:', error);
+                showTimedAlert('Network error. Please try again.', 'danger');
+            }
+        }
+
+        // Delete meeting function
+        async function deleteMeeting(meetingId) {
+            if (!confirm('Are you sure you want to delete this meeting? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+                formData.append('meeting_id', meetingId);
+
+                const response = await fetch(`../api/meetings.php?action=delete`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showTimedAlert('Meeting deleted successfully!', 'success');
+                    refreshMeetings();
+                } else {
+                    showTimedAlert(data.message || 'Failed to delete meeting', 'danger');
+                }
+            } catch (error) {
+                console.error('Error deleting meeting:', error);
+                showTimedAlert('Failed to delete meeting: ' + error.message, 'danger');
+            }
+        }
+
+        // Check if meeting can be joined and then join
+        async function checkAndJoinMeeting(meetingId, scheduledTime) {
+            const meetingTime = new Date(scheduledTime);
+            const now = new Date();
+            
+            if (meetingTime <= now) {
+                // Meeting time has arrived, try to join
+                await joinMeeting(meetingId);
+            } else {
+                showTimedAlert('This meeting has not started yet. Please wait until the scheduled time.', 'warning');
+            }
+        }
+
+        // Refresh meetings function
+        async function refreshMeetings() {
+            try {
+                const response = await fetch('../api/meetings.php?action=all');
+                if (!response.ok) throw new Error('Failed to load meetings');
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update active meetings
+                    updateMeetingsDisplay('activeMeetings', data.active || [], true);
+                    
+                    // Update scheduled meetings
+                    updateMeetingsDisplay('scheduledMeetings', data.scheduled || [], false);
+                    
+                    // Update counts
+                    document.getElementById('activeMeetingsCount').textContent = `(${data.active ? data.active.length : 0})`;
+                    document.getElementById('scheduledMeetingsCount').textContent = `(${data.scheduled ? data.scheduled.length : 0})`;
+                } else {
+                    throw new Error('Failed to load meetings');
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing meetings:', error);
+            }
+        }
+
+        // Update meetings display
+        function updateMeetingsDisplay(containerId, meetings, isActive) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            if (meetings.length === 0) {
+                if (isActive) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="bi bi-camera-video-off"></i>
+                                <h4>No Active Meetings</h4>
+                                <p>There are no live meetings at the moment</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-calendar-x"></i>
+                            <h4>No Scheduled Meetings</h4>
+                            <p>No upcoming meetings are scheduled</p>
+                        </div>
+                    `;
+                }
+                return;
             }
             
-            form.reset();
-            // Refresh meetings
-            refreshMeetings();
-        } else {
-            showTimedAlert(data.message || 'Failed to create meeting', 'danger');
-        }
-    } catch (error) {
-        console.error('Error creating meeting:', error);
-        showTimedAlert('Failed to create meeting. Please try again.', 'danger');
-    } finally {
-        // Re-enable button
-        createBtn.disabled = false;
-        createBtn.innerHTML = '<i class="bi bi-plus-circle"></i> Create Meeting';
-    }
-}
-
-async function joinMeeting(meetingId) {
-    try {
-        const formData = new FormData();
-        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
-        formData.append('meeting_id', meetingId);
-
-        const response = await fetch(`../api/meetings.php?action=join`, {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showTimedAlert('Joining meeting...', 'success');
-            // Redirect to meeting room
-            window.location.href = `meeting-room.php?meeting_id=${meetingId}`;
-        } else {
-            showTimedAlert(data.message || 'Failed to join meeting', 'danger');
-        }
-    } catch (error) {
-        console.error('Error joining meeting:', error);
-        showTimedAlert('Network error. Please try again.', 'danger');
-    }
-}
-
-// Delete meeting function
-async function deleteMeeting(meetingId) {
-    if (!confirm('Are you sure you want to delete this meeting? This action cannot be undone.')) {
-        return;
-    }
-
-    try {
-        const formData = new FormData();
-        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
-        formData.append('meeting_id', meetingId);
-
-        const response = await fetch(`../api/meetings.php?action=delete`, {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showTimedAlert('Meeting deleted successfully!', 'success');
-            refreshMeetings();
-        } else {
-            showTimedAlert(data.message || 'Failed to delete meeting', 'danger');
-        }
-    } catch (error) {
-        console.error('Error deleting meeting:', error);
-        showTimedAlert('Failed to delete meeting: ' + error.message, 'danger');
-    }
-}
-
-// Check if meeting can be joined and then join
-async function checkAndJoinMeeting(meetingId, scheduledTime) {
-    const meetingTime = new Date(scheduledTime);
-    const now = new Date();
-    
-    if (meetingTime <= now) {
-        // Meeting time has arrived, try to join
-        await joinMeeting(meetingId);
-    } else {
-        showTimedAlert('This meeting has not started yet. Please wait until the scheduled time.', 'warning');
-    }
-}
-
-// Refresh meetings function
-async function refreshMeetings() {
-    try {
-        const response = await fetch('../api/meetings.php?action=all');
-        if (!response.ok) throw new Error('Failed to load meetings');
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Update active meetings
-            updateMeetingsDisplay('activeMeetings', data.active || [], true);
-            
-            // Update scheduled meetings
-            updateMeetingsDisplay('scheduledMeetings', data.scheduled || [], false);
-            
-            // Update counts
-            document.getElementById('activeMeetingsCount').textContent = `(${data.active ? data.active.length : 0})`;
-            document.getElementById('scheduledMeetingsCount').textContent = `(${data.scheduled ? data.scheduled.length : 0})`;
-        } else {
-            throw new Error('Failed to load meetings');
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing meetings:', error);
-    }
-}
-
-// Update meetings display
-function updateMeetingsDisplay(containerId, meetings, isActive) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    if (meetings.length === 0) {
-        if (isActive) {
-            container.innerHTML = `
-                <div class="col-12">
-                    <div class="empty-state">
-                        <i class="bi bi-camera-video-off"></i>
-                        <h4>No Active Meetings</h4>
-                        <p>There are no live meetings at the moment</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="bi bi-calendar-x"></i>
-                    <h4>No Scheduled Meetings</h4>
-                    <p>No upcoming meetings are scheduled</p>
-                </div>
-            `;
-        }
-        return;
-    }
-    
-    if (isActive) {
-        container.innerHTML = meetings.map(meeting => `
-            <div class="col-md-6 col-lg-4">
-                <div class="meeting-card meeting-live">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="mb-1">${escapeHtml(meeting.title)}</h5>
-                        <div>
-                            <span class="live-badge">LIVE</span>
-                            ${meeting.type === 'private' ? '<span class="private-badge ms-1"><i class="bi bi-lock"></i></span>' : ''}
+            if (isActive) {
+                container.innerHTML = meetings.map(meeting => `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="meeting-card meeting-live">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-1">${escapeHtml(meeting.title)}</h5>
+                                <div>
+                                    <span class="live-badge">LIVE</span>
+                                    ${meeting.type === 'private' ? '<span class="private-badge ms-1"><i class="bi bi-lock"></i></span>' : ''}
+                                </div>
+                            </div>
+                            
+                            <p class="text-muted mb-2">
+                                <i class="bi bi-person"></i> 
+                                <span class="meeting-host">${escapeHtml(meeting.user_name || 'Host')}</span>
+                            </p>
+                            
+                            ${meeting.description ? `<p class="mb-3 small">${escapeHtml(meeting.description)}</p>` : ''}
+                            
+                            <div class="text-muted mb-2">
+                                <i class="bi bi-clock"></i> Started ${formatTime(meeting.scheduled_time)}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="participants">
+                                    <i class="bi bi-people"></i>
+                                    <span>${meeting.participants_count || 1} participants</span>
+                                </div>
+                                <div class="meeting-actions">
+                                    ${meeting.user_id == <?php echo $_SESSION['user_id']; ?> ? `
+                                        <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(${meeting.id})" title="Delete Meeting">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    ` : ''}
+                                    <button class="btn-primary-custom btn-sm" onclick="joinMeeting(${meeting.id})">
+                                        <i class="bi bi-camera-video"></i> Join
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <p class="text-muted mb-2">
-                        <i class="bi bi-person"></i> 
-                        <span class="meeting-host">${escapeHtml(meeting.user_name)}</span>
-                    </p>
-                    
-                    ${meeting.description ? `<p class="mb-3 small">${escapeHtml(meeting.description)}</p>` : ''}
-                    
-                    <div class="text-muted mb-2">
-                        <i class="bi bi-clock"></i> Started ${formatTime(meeting.scheduled_time)}
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="participants">
-                            <i class="bi bi-people"></i>
-                            <span>${meeting.participants_count || 0} participants</span>
+                `).join('');
+            } else {
+                container.innerHTML = meetings.map(meeting => `
+                    <div class="meeting-card meeting-scheduled">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-1">${escapeHtml(meeting.title)}</h5>
+                            <div>
+                                <span class="scheduled-badge">SCHEDULED</span>
+                                ${meeting.type === 'private' ? '<span class="private-badge ms-1"><i class="bi bi-lock"></i></span>' : ''}
+                            </div>
                         </div>
-                        <div class="meeting-actions">
-                            ${meeting.user_id == <?php echo $_SESSION['user_id']; ?> ? `
-                                <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(${meeting.id})" title="Delete Meeting">
-                                    <i class="bi bi-trash"></i>
+                        
+                        <p class="text-muted mb-2">
+                            <i class="bi bi-person"></i> 
+                            <span class="meeting-host">${escapeHtml(meeting.user_name || 'Host')}</span>
+                        </p>
+                        
+                        ${meeting.description ? `<p class="mb-3 small">${escapeHtml(meeting.description)}</p>` : ''}
+                        
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="text-muted">
+                                    <i class="bi bi-calendar"></i> ${new Date(meeting.scheduled_time).toLocaleString()}
+                                </span>
+                            </div>
+                            <div class="meeting-actions">
+                                ${meeting.user_id == <?php echo $_SESSION['user_id']; ?> ? `
+                                    <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(${meeting.id})" title="Delete Meeting">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                ` : ''}
+                                <button class="btn-primary-custom btn-sm join-meeting-btn" 
+                                        data-meeting-id="${meeting.id}"
+                                        data-scheduled-time="${meeting.scheduled_time}"
+                                        onclick="checkAndJoinMeeting(${meeting.id}, '${meeting.scheduled_time}')">
+                                    <i class="bi bi-camera-video"></i> <span class="join-text">Join</span>
                                 </button>
-                            ` : ''}
-                            <button class="btn-primary-custom btn-sm" onclick="joinMeeting(${meeting.id})">
-                                <i class="bi bi-camera-video"></i> Join
-                            </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        `).join('');
-    } else {
-        container.innerHTML = meetings.map(meeting => `
-            <div class="meeting-card meeting-scheduled">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="mb-1">${escapeHtml(meeting.title)}</h5>
-                    <div>
-                        <span class="scheduled-badge">SCHEDULED</span>
-                        ${meeting.type === 'private' ? '<span class="private-badge ms-1"><i class="bi bi-lock"></i></span>' : ''}
-                    </div>
-                </div>
-                
-                <p class="text-muted mb-2">
-                    <i class="bi bi-person"></i> 
-                    <span class="meeting-host">${escapeHtml(meeting.user_name)}</span>
-                </p>
-                
-                ${meeting.description ? `<p class="mb-3 small">${escapeHtml(meeting.description)}</p>` : ''}
-                
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <span class="text-muted">
-                            <i class="bi bi-calendar"></i> ${new Date(meeting.scheduled_time).toLocaleString()}
-                        </span>
-                    </div>
-                    <div class="meeting-actions">
-                        ${meeting.user_id == <?php echo $_SESSION['user_id']; ?> ? `
-                            <button class="btn-danger-custom btn-sm" onclick="deleteMeeting(${meeting.id})" title="Delete Meeting">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        ` : ''}
-                        <button class="btn-primary-custom btn-sm join-meeting-btn" 
-                                data-meeting-id="${meeting.id}"
-                                data-scheduled-time="${meeting.scheduled_time}"
-                                onclick="checkAndJoinMeeting(${meeting.id}, '${meeting.scheduled_time}')">
-                            <i class="bi bi-camera-video"></i> <span class="join-text">Join</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        // Update join buttons for scheduled meetings
-        updateJoinButtons();
-    }
-}
-
-// Update join buttons based on current time
-function updateJoinButtons() {
-    const joinButtons = document.querySelectorAll('.join-meeting-btn');
-    const now = new Date();
-    
-    joinButtons.forEach(button => {
-        const scheduledTime = new Date(button.getAttribute('data-scheduled-time'));
-        const meetingId = button.getAttribute('data-meeting-id');
-        
-        if (scheduledTime <= now) {
-            // Meeting can be joined
-            button.onclick = function() { joinMeeting(meetingId); };
-            button.querySelector('.join-text').textContent = 'Join';
-            button.classList.remove('btn-secondary-custom');
-            button.classList.add('btn-primary-custom');
-        } else {
-            // Meeting not ready yet
-            button.onclick = function() { 
-                showTimedAlert('This meeting has not started yet. Please wait until the scheduled time.', 'warning');
-            };
-            button.querySelector('.join-text').textContent = 'Join';
-            button.classList.remove('btn-primary-custom');
-            button.classList.add('btn-secondary-custom');
+                `).join('');
+            }
         }
-    });
-}
 
-// Auto-refresh meetings every 30 seconds
-setInterval(refreshMeetings, 30000);
+        // Update join buttons based on current time
+        function updateJoinButtons() {
+            const joinButtons = document.querySelectorAll('.join-meeting-btn');
+            const now = new Date();
+            
+            joinButtons.forEach(button => {
+                const scheduledTime = new Date(button.getAttribute('data-scheduled-time'));
+                const meetingId = button.getAttribute('data-meeting-id');
+                
+                if (scheduledTime <= now) {
+                    // Meeting can be joined
+                    button.onclick = function() { joinMeeting(meetingId); };
+                    button.querySelector('.join-text').textContent = 'Join';
+                    button.classList.remove('btn-secondary-custom');
+                    button.classList.add('btn-primary-custom');
+                } else {
+                    // Meeting not ready yet
+                    button.onclick = function() { 
+                        showTimedAlert('This meeting has not started yet. Please wait until the scheduled time.', 'warning');
+                    };
+                    button.querySelector('.join-text').textContent = 'Join';
+                    button.classList.remove('btn-primary-custom');
+                    button.classList.add('btn-secondary-custom');
+                }
+            });
+        }
 
-// Update join buttons every 10 seconds
-setInterval(updateJoinButtons, 10000);
+        // Auto-refresh meetings every 30 seconds
+        setInterval(refreshMeetings, 30000);
 
-// Load meetings when page loads and when meetings section is active
-document.addEventListener('DOMContentLoaded', function() {
-    // Initial load
-    refreshMeetings();
-    
-    // Also refresh meetings when user switches to meetings section
-    document.querySelectorAll('.nav-item[data-section="meetings"]').forEach(item => {
-        item.addEventListener('click', function() {
-            setTimeout(refreshMeetings, 100);
+        // Update join buttons every 10 seconds
+        setInterval(updateJoinButtons, 10000);
+
+        // Load meetings when page loads and when meetings section is active
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial load
+            refreshMeetings();
+            
+            // Also refresh meetings when user switches to meetings section
+            document.querySelectorAll('.nav-item[data-section="meetings"]').forEach(item => {
+                item.addEventListener('click', function() {
+                    setTimeout(refreshMeetings, 100);
+                });
+            });
         });
-    });
-});
     </script>
 </body>
 </html>
